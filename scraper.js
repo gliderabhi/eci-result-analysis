@@ -1,11 +1,12 @@
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const { chromium: playwrightChromium } = require('playwright');
 const cheerio = require('cheerio');
 const { getMajority } = require('./demographics');
 
 puppeteer.use(StealthPlugin());
 
-const CHROMIUM = 'C:\\Users\\Abhishekh.Sharma\\AppData\\Local\\ms-playwright\\chromium-1217\\chrome-win64\\chrome.exe';
+const CHROMIUM = playwrightChromium.executablePath();
 const BASE = 'https://results.eci.gov.in/ResultAcGenMay2026/';
 
 const STATES = [
