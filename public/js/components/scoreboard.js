@@ -28,5 +28,5 @@ function togglePartyFilter(abbr) {
   STATE.page          = 1;
   document.querySelectorAll('.filter-chip').forEach((c, i) => c.classList.toggle('on', i === 0));
   const d = STATE.allResults?.[STATE.activeTab];
-  if (d) { renderScoreboard(d, STATES_META[STATE.activeTab]); applyAndRender(d); }
+  if (d) { renderScoreboard(d, getStateMeta(STATE.activeTab)); applyAndRender(d); }
 }

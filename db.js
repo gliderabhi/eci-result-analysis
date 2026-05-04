@@ -7,9 +7,10 @@ db.pragma('foreign_keys = ON');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS scrape_runs (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    scraped_at TEXT    NOT NULL,
-    status     TEXT    NOT NULL DEFAULT 'success'
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    election_code TEXT    NOT NULL DEFAULT 'may2026',
+    scraped_at    TEXT    NOT NULL,
+    status        TEXT    NOT NULL DEFAULT 'success'
   );
 
   CREATE TABLE IF NOT EXISTS party_results (
@@ -43,7 +44,12 @@ db.exec(`
   );
 `);
 
-const _insertRun   = db.prepare(`INSERT INTO scrape_runs (scraped_at, status) VALUES (?, ?)`);
+// Add election_code column to existing DBs that were created without it
+try {
+  db.exec(`ALTER TABLE scrape_runs ADD COLUMN election_code TEXT NOT NULL DEFAULT 'may2026'`);
+} catch (_) { /* column already exists */ }
+
+const _insertRun   = db.prepare(`INSERT INTO scrape_runs (election_code, scraped_at, status) VALUES (?, ?, ?)`);
 const _insertParty = db.prepare(`
   INSERT INTO party_results (run_id, state_code, party, won, leading, total)
   VALUES (?, ?, ?, ?, ?, ?)
@@ -56,8 +62,8 @@ const _insertConst = db.prepare(`
   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `);
 
-const saveRun = db.transaction((scrapedAt, data) => {
-  const { lastInsertRowid: runId } = _insertRun.run(scrapedAt, 'success');
+const saveRun = db.transaction((electionCode, scrapedAt, data) => {
+  const { lastInsertRowid: runId } = _insertRun.run(electionCode, scrapedAt, 'success');
   for (const [stateCode, stateData] of Object.entries(data)) {
     if (!stateData) continue;
     for (const p of stateData.parties || []) {
@@ -77,12 +83,14 @@ const saveRun = db.transaction((scrapedAt, data) => {
   return runId;
 });
 
-function getLatestRun() {
-  return db.prepare(`SELECT * FROM scrape_runs WHERE status='success' ORDER BY id DESC LIMIT 1`).get();
+function getLatestRun(electionCode = 'may2026') {
+  return db.prepare(
+    `SELECT * FROM scrape_runs WHERE status='success' AND election_code=? ORDER BY id DESC LIMIT 1`
+  ).get(electionCode);
 }
 
 function getRunData(runId) {
-  const parties = db.prepare(`SELECT * FROM party_results       WHERE run_id=?`).all(runId);
+  const parties = db.prepare(`SELECT * FROM party_results        WHERE run_id=?`).all(runId);
   const consts  = db.prepare(`SELECT * FROM constituency_results WHERE run_id=?`).all(runId);
   const result  = {};
 
@@ -108,8 +116,10 @@ function getRunData(runId) {
   return result;
 }
 
-function getHistory(limit = 20) {
-  return db.prepare(`SELECT id, scraped_at, status FROM scrape_runs ORDER BY id DESC LIMIT ?`).all(limit);
+function getHistory(limit = 30) {
+  return db.prepare(
+    `SELECT id, election_code, scraped_at, status FROM scrape_runs ORDER BY id DESC LIMIT ?`
+  ).all(limit);
 }
 
 module.exports = { saveRun, getLatestRun, getRunData, getHistory };

@@ -1,40 +1,59 @@
-// ── Shared state (referenced by all component files) ──────────────────────────
+// ── Shared state ──────────────────────────────────────────────────────────────
 const STATE = {
-  allResults:    null,
-  activeTab:     'S03',
-  filtered:      [],
-  page:          1,
-  PAGE_SIZE:     50,
-  search:        '',
-  filterMode:    'all',
-  activeInsight: null,
-  sortCol:       'constNo',
-  sortAsc:       true,
-  selectedParty: null,
+  allResults:      null,
+  liveResults:     null,   // always holds the latest live scrape
+  activeTab:       'S03',
+  currentElection: null,   // null = viewing live (may2026)
+  viewingRunId:    null,   // null = live view
+  filtered:        [],
+  page:            1,
+  PAGE_SIZE:       50,
+  search:          '',
+  filterMode:      'all',
+  activeInsight:   null,
+  sortCol:         'constNo',
+  sortAsc:         true,
+  selectedParty:   null,
 };
+
 
 // ── SSE connection ────────────────────────────────────────────────────────────
 const es = new EventSource('/events');
 
 es.onmessage = e => {
   const msg = JSON.parse(e.data);
+
+  // Route scrape-status events to the election picker
+  if (['scrape-started', 'scrape-done', 'scrape-error'].includes(msg.type)) {
+    handleScrapeSSE(msg);
+    return;
+  }
+
+  // Live data events — only update UI if not viewing a historical run
   if (msg.type === 'loading') {
-    setStatus('loading', 'Fetching…');
-    document.getElementById('loading-bar').style.display = 'block';
+    if (!STATE.viewingRunId) {
+      setStatus('loading', 'Fetching…');
+      document.getElementById('loading-bar').style.display = 'block';
+    }
   } else if (msg.type === 'error') {
-    setStatus('err', 'Error');
-    document.getElementById('loading-bar').style.display = 'none';
-    document.getElementById('error-box').style.display = 'block';
-    document.getElementById('error-box').textContent = '⚠️ ' + msg.error;
-    setTime(msg.lastUpdated);
+    if (!STATE.viewingRunId) {
+      setStatus('err', 'Error');
+      document.getElementById('loading-bar').style.display = 'none';
+      document.getElementById('error-box').style.display = 'block';
+      document.getElementById('error-box').textContent = '⚠️ ' + msg.error;
+      setTime(msg.lastUpdated);
+    }
   } else if (msg.type === 'update') {
     setStatus('live', 'Live');
     document.getElementById('loading-bar').style.display = 'none';
     document.getElementById('error-box').style.display = 'none';
-    STATE.allResults = msg.payload;
     setTime(msg.lastUpdated);
-    updateTabBadges();
-    renderState();
+    STATE.liveResults = msg.payload;
+    if (!STATE.viewingRunId) {
+      STATE.allResults = msg.payload;
+      updateTabBadges();
+      renderState();
+    }
   }
 };
 
@@ -86,10 +105,10 @@ function updateTabBadges() {
   });
 }
 
-// ── Orchestration ─────────────────────────────────────────────────────────────
+// ── Render orchestration ──────────────────────────────────────────────────────
 function renderState() {
   const d    = STATE.allResults?.[STATE.activeTab];
-  const meta = STATES_META[STATE.activeTab];
+  const meta = getStateMeta(STATE.activeTab);
 
   if (!d) {
     document.getElementById('status-banner').style.display      = 'none';
@@ -108,7 +127,7 @@ function renderState() {
   applyAndRender(d);
 }
 
-// ── Manual refresh ────────────────────────────────────────────────────────────
+// ── Manual refresh (live only) ────────────────────────────────────────────────
 async function manualRefresh() {
   const btn = document.getElementById('refresh-btn');
   btn.disabled    = true;
@@ -116,3 +135,4 @@ async function manualRefresh() {
   await fetch('/api/refresh', { method: 'POST' });
   setTimeout(() => { btn.disabled = false; btn.textContent = '↻ Refresh'; }, 15000);
 }
+

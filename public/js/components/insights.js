@@ -54,5 +54,5 @@ function setInsight(id) {
   STATE.page          = 1;
   document.querySelectorAll('.filter-chip').forEach((c, i) => c.classList.toggle('on', i === 0));
   const d = STATE.allResults?.[STATE.activeTab];
-  if (d) { renderInsights(d, STATES_META[STATE.activeTab]); applyAndRender(d); }
+  if (d) { renderInsights(d, getStateMeta(STATE.activeTab)); applyAndRender(d); }
 }
