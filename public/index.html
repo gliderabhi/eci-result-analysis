@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>India Elections 2026 — Live Results</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0d1117; --surface: #161b22; --card: #1c2128; --border: #30363d;
+      --text: #e6edf3; --muted: #8b949e; --dim: #484f58;
+      --green: #22c55e; --orange: #f97316; --blue: #3b82f6;
+      --red: #ef4444; --yellow: #eab308; --purple: #a855f7;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px; line-height: 1.5; min-height: 100vh; }
+
+    /* ─── HEADER ─── */
+    .top-stripe { height: 3px; background: linear-gradient(90deg,#f97316,#ef4444,#a855f7,#3b82f6,#22c55e); }
+    header {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      position: sticky; top: 0; z-index: 200;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .brand-icon { font-size: 22px; }
+    .brand-title { font-size: 0.95rem; font-weight: 700; }
+    .brand-sub { font-size: 0.68rem; color: var(--muted); }
+    .hdr-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .live-pill { display: flex; align-items: center; gap: 6px; background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 0.75rem; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); flex-shrink: 0; }
+    .dot.live { background: var(--green); box-shadow: 0 0 5px var(--green); animation: blink 1.5s infinite; }
+    .dot.loading { background: var(--orange); animation: blink 0.5s infinite; }
+    .dot.err { background: var(--red); }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .upd-time { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+    .btn { padding: 5px 14px; border-radius: 6px; border: none; cursor: pointer; font-size: 0.75rem; font-weight: 600; }
+    .btn-primary { background: var(--blue); color: #fff; transition: opacity .15s; }
+    .btn-primary:hover { opacity: .85; }
+    .btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+    .loading-bar { height: 2px; background: linear-gradient(90deg,transparent,var(--orange),transparent); background-size:200%; animation: shimmer 1s infinite; display:none; }
+    @keyframes shimmer { 0%{background-position:-200%}100%{background-position:200%} }
+
+    /* ─── STATE TABS ─── */
+    .state-tabs-wrap { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 20px; position: sticky; top: 53px; z-index: 190; }
+    .state-tabs { display: flex; gap: 0; overflow-x: auto; }
+    .state-tabs::-webkit-scrollbar { display: none; }
+    .state-tab {
+      display: flex; align-items: center; gap: 8px; padding: 12px 18px;
+      cursor: pointer; border-bottom: 2px solid transparent;
+      font-size: 0.82rem; font-weight: 600; color: var(--muted);
+      white-space: nowrap; transition: all .15s; flex-shrink: 0;
+    }
+    .state-tab:hover { color: var(--text); background: rgba(255,255,255,.03); }
+    .state-tab.active { color: var(--text); border-bottom-color: var(--blue); }
+    .state-tab .tab-flag { font-size: 1.1rem; }
+    .state-tab .tab-seats { font-size: 0.65rem; color: var(--dim); font-weight: 400; }
+    .state-tab .tab-leader {
+      font-size: 0.65rem; padding: 1px 6px; border-radius: 10px;
+      font-weight: 700; display: none;
+    }
+    .state-tab.active .tab-leader, .state-tab:hover .tab-leader { display: inline-block; }
+
+    main { padding: 16px 20px; max-width: 1600px; margin: 0 auto; }
+
+    /* ─── ERRORS ─── */
+    .error-box { background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.25); border-radius: 8px; padding: 10px 16px; color: #fca5a5; margin-bottom: 14px; font-size: .82rem; }
+
+    /* ─── STATUS BANNER ─── */
+    .status-banner {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+      padding: 10px 16px; margin-bottom: 14px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    }
+    .banner-tag { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 4px 12px; font-size: 0.75rem; }
+    .banner-tag b { color: var(--text); }
+    .banner-tag span { color: var(--muted); }
+
+    /* ─── PARTY SCOREBOARD ─── */
+    .section-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .section-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+    .majority-note { font-size: 0.7rem; color: var(--dim); margin-left: auto; }
+
+    .scoreboard { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 16px; }
+    .scoreboard::-webkit-scrollbar { height: 3px; }
+    .scoreboard::-webkit-scrollbar-thumb { background: var(--dim); border-radius: 2px; }
+
+    .party-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px 14px; min-width: 150px; flex-shrink: 0; cursor: pointer; transition: all .15s;
+    }
+    .party-card:hover { border-color: var(--muted); transform: translateY(-1px); }
+    .party-card.selected { border-color: var(--blue); background: rgba(59,130,246,.07); }
+    .party-abbr { font-size: 1.25rem; font-weight: 800; }
+    .party-full { font-size: 0.63rem; color: var(--muted); margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 122px; }
+    .party-nums { display: flex; gap: 10px; }
+    .pn { text-align: center; }
+    .pn-val { font-size: 1rem; font-weight: 700; display: block; }
+    .pn-lbl { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; }
+    .pn-val.won { color: var(--green); }
+    .pn-val.lead { color: var(--blue); }
+    .party-bar { margin-top: 8px; height: 3px; background: var(--border); border-radius: 2px; }
+    .party-bar-fill { height: 100%; border-radius: 2px; transition: width .5s; }
+
+    /* ─── INSIGHT CARDS ─── */
+    .insights { display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: 10px; margin-bottom: 16px; }
+    .insight-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; cursor: pointer; transition: all .15s; }
+    .insight-card:hover { border-color: var(--muted); transform: translateY(-1px); }
+    .insight-card.active { border-color: var(--yellow); background: rgba(234,179,8,.05); }
+    .ins-icon { font-size: 1.3rem; margin-bottom: 4px; }
+    .ins-value { font-size: 1.6rem; font-weight: 800; color: var(--orange); line-height: 1; }
+    .ins-label { font-size: 0.72rem; color: var(--text); margin-top: 4px; font-weight: 600; }
+    .ins-sub { font-size: 0.63rem; color: var(--dim); margin-top: 2px; }
+
+    /* ─── TABLE ─── */
+    .table-area { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .table-toolbar { padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .filter-chip { background: var(--card); border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: 3px 12px; cursor: pointer; font-size: 0.72rem; font-weight: 600; transition: all .15s; white-space: nowrap; }
+    .filter-chip:hover { border-color: var(--muted); color: var(--text); }
+    .filter-chip.on { background: var(--blue); border-color: var(--blue); color: #fff; }
+    .search-input { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; color: var(--text); font-size: 0.78rem; width: 210px; outline: none; margin-left: auto; }
+    .search-input:focus { border-color: var(--blue); }
+    .result-count { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { background: var(--card); padding: 8px 12px; text-align: left; font-size: 0.67rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; }
+    thead th:hover { color: var(--text); }
+    thead th.sorted { color: var(--blue); }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,.025); }
+    td { padding: 8px 12px; vertical-align: middle; }
+
+    .const-name { font-weight: 600; font-size: .82rem; }
+    .const-num { color: var(--muted); font-size: .72rem; }
+    .cand { font-size: .78rem; font-weight: 600; }
+    .cand-party { font-size: .63rem; color: var(--muted); margin-top: 1px; }
+    .margin-val { font-weight: 700; font-size: .82rem; }
+    .margin-val.tight { color: var(--red); }
+    .margin-val.close { color: var(--yellow); }
+    .margin-val.safe { color: var(--green); }
+
+    .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 10px; font-size: .63rem; font-weight: 700; white-space: nowrap; }
+    .badge-won { background: rgba(34,197,94,.12); color: var(--green); border: 1px solid rgba(34,197,94,.25); }
+    .badge-prog { background: rgba(59,130,246,.1); color: var(--blue); border: 1px solid rgba(59,130,246,.2); }
+    .dot-inline { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 4px; flex-shrink: 0; }
+
+    /* ─── PAGINATION ─── */
+    .pagination { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-top: 1px solid var(--border); font-size: .75rem; color: var(--muted); }
+    .page-btns { display: flex; gap: 3px; }
+    .pbtn { background: var(--card); border: 1px solid var(--border); color: var(--text); border-radius: 5px; padding: 3px 9px; cursor: pointer; font-size: .75rem; }
+    .pbtn:disabled { opacity: .3; cursor: not-allowed; }
+    .pbtn.cur { background: var(--blue); border-color: var(--blue); color: #fff; }
+
+    .empty-state { padding: 60px; text-align: center; color: var(--muted); }
+    .empty-icon { font-size: 2.5rem; margin-bottom: 10px; }
+    .skeleton { background: linear-gradient(90deg, var(--card) 25%, var(--border) 50%, var(--card) 75%); background-size: 200%; animation: shimmer 1.2s infinite; border-radius: 4px; height: 12px; }
+  </style>
+</head>
+<body>
+<div class="top-stripe"></div>
+<header>
+  <div class="brand">
+    <div class="brand-icon">🇮🇳</div>
+    <div>
+      <div class="brand-title">India Assembly Elections — May 2026</div>
+      <div class="brand-sub">Live Results Tracker · 5 States & UTs</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div class="live-pill">
+      <span class="dot" id="dot"></span>
+      <span id="status-lbl">Connecting…</span>
+    </div>
+    <span class="upd-time" id="upd-time"></span>
+    <button class="btn btn-primary" id="refresh-btn" onclick="manualRefresh()">↻ Refresh</button>
+  </div>
+</header>
+<div class="loading-bar" id="loading-bar"></div>
+
+<!-- State Tabs -->
+<div class="state-tabs-wrap">
+  <div class="state-tabs" id="state-tabs">
+    <div class="state-tab active" data-code="S03" onclick="switchTab('S03')">
+      <span class="tab-flag">🏔️</span>
+      <div><div>Assam</div><div class="tab-seats">126 seats</div></div>
+    </div>
+    <div class="state-tab" data-code="S11" onclick="switchTab('S11')">
+      <span class="tab-flag">🌴</span>
+      <div><div>Kerala</div><div class="tab-seats">140 seats</div></div>
+    </div>
+    <div class="state-tab" data-code="U07" onclick="switchTab('U07')">
+      <span class="tab-flag">🏖️</span>
+      <div><div>Puducherry</div><div class="tab-seats">30 seats</div></div>
+    </div>
+    <div class="state-tab" data-code="S22" onclick="switchTab('S22')">
+      <span class="tab-flag">🎭</span>
+      <div><div>Tamil Nadu</div><div class="tab-seats">234 seats</div></div>
+    </div>
+    <div class="state-tab" data-code="S25" onclick="switchTab('S25')">
+      <span class="tab-flag">🐯</span>
+      <div><div>West Bengal</div><div class="tab-seats">294 seats</div></div>
+    </div>
+  </div>
+</div>
+
+<main>
+  <div class="error-box" id="error-box" style="display:none"></div>
+
+  <!-- Banner -->
+  <div class="status-banner" id="status-banner" style="display:none">
+    <div class="banner-tag"><span>Total Seats </span><b id="b-total">—</b></div>
+    <div class="banner-tag"><span>Declared </span><b id="b-declared" style="color:var(--green)">—</b></div>
+    <div class="banner-tag"><span>Counting </span><b id="b-counting" style="color:var(--blue)">—</b></div>
+    <div class="banner-tag" id="b-status-wrap" style="display:none"><span id="b-status-text" style="color:var(--muted);font-size:.7rem"></span></div>
+  </div>
+
+  <!-- Party Scoreboard -->
+  <div id="scoreboard-section" style="display:none">
+    <div class="section-hdr">
+      <span class="section-label">Party Tally</span>
+      <span class="majority-note" id="majority-note"></span>
+    </div>
+    <div class="scoreboard" id="scoreboard"></div>
+  </div>
+
+  <!-- Insights -->
+  <div class="insights" id="insights" style="display:none"></div>
+
+  <!-- Table -->
+  <div class="table-area">
+    <div class="table-toolbar">
+      <button class="filter-chip on" onclick="setFilter('all',this)">All</button>
+      <button class="filter-chip" onclick="setFilter('won',this)">✅ Declared</button>
+      <button class="filter-chip" onclick="setFilter('progress',this)">⏳ Counting</button>
+      <button class="filter-chip" onclick="setFilter('tight',this)">🔴 Tight ≤1K</button>
+      <button class="filter-chip" onclick="setFilter('close',this)">🟡 Close ≤5K</button>
+      <button class="filter-chip" onclick="setFilter('landslide',this)">🟢 Landslide &gt;20K</button>
+      <span style="width:1px;height:18px;background:var(--border);margin:0 2px;flex-shrink:0"></span>
+      <button class="filter-chip" onclick="setFilter('demo-Hindu',this)">🕉️ Hindu Majority</button>
+      <button class="filter-chip" onclick="setFilter('demo-Muslim',this)">☪️ Muslim Majority</button>
+      <button class="filter-chip" onclick="setFilter('demo-Christian',this)">✝️ Christian Majority</button>
+      <button class="filter-chip" onclick="setFilter('demo-Mixed',this)">🏳️ Tribal/Mixed</button>
+      <span class="result-count" id="result-count"></span>
+      <input class="search-input" id="search-input" placeholder="🔍 Search…" oninput="onSearch(this.value)" />
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th onclick="sort('constNo')" id="th-constNo">No.</th>
+            <th onclick="sort('constituency')" id="th-constituency">Constituency</th>
+            <th onclick="sort('demo')" id="th-demo" title="Estimated from Census 2011 district data">Demography ⓘ</th>
+            <th onclick="sort('leadCandidate')" id="th-leadCandidate">Leading Candidate & Party</th>
+            <th onclick="sort('trailCandidate')" id="th-trailCandidate">Trailing Candidate & Party</th>
+            <th onclick="sort('margin')" id="th-margin">Margin ↕</th>
+            <th onclick="sort('round')" id="th-round">Round</th>
+            <th onclick="sort('status')" id="th-status">Status</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="empty-state" id="empty-state"><div class="empty-icon">⏳</div><div>Loading results…</div></div>
+    <div class="pagination" id="pagination" style="display:none">
+      <span id="page-info"></span>
+      <div class="page-btns" id="page-btns"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+const STATES_META = {
+  S03: { name: 'Assam',       seats: 126, majority: 64,  flag: '🏔️' },
+  S11: { name: 'Kerala',      seats: 140, majority: 71,  flag: '🌴' },
+  U07: { name: 'Puducherry',  seats: 30,  majority: 16,  flag: '🏖️' },
+  S22: { name: 'Tamil Nadu',  seats: 234, majority: 118, flag: '🎭' },
+  S25: { name: 'West Bengal', seats: 294, majority: 148, flag: '🐯' },
+};
+
+let allResults = null;   // { S03: {...}, S11: {...}, ... }
+let activeTab  = 'S03';
+let filtered   = [];
+let page       = 1;
+const PAGE_SIZE = 50;
+let search     = '';
+let filterMode = 'all';
+let activeInsight = null;
+let sortCol    = 'constNo';
+let sortAsc    = true;
+let selectedParty = null;
+
+// ── SSE ──────────────────────────────────────────────────────────────────────
+const es = new EventSource('/events');
+es.onmessage = e => {
+  const msg = JSON.parse(e.data);
+  if (msg.type === 'loading') {
+    setStatus('loading', 'Fetching…');
+    document.getElementById('loading-bar').style.display = 'block';
+  } else if (msg.type === 'error') {
+    setStatus('err', 'Error');
+    document.getElementById('loading-bar').style.display = 'none';
+    document.getElementById('error-box').style.display = 'block';
+    document.getElementById('error-box').textContent = '⚠️ ' + msg.error;
+    setTime(msg.lastUpdated);
+  } else if (msg.type === 'update') {
+    setStatus('live', 'Live');
+    document.getElementById('loading-bar').style.display = 'none';
+    document.getElementById('error-box').style.display = 'none';
+    allResults = msg.payload;
+    setTime(msg.lastUpdated);
+    updateTabBadges();
+    renderState();
+  }
+};
+es.onerror = () => setStatus('err', 'Disconnected');
+
+function setStatus(cls, lbl) {
+  document.getElementById('dot').className = 'dot ' + cls;
+  document.getElementById('status-lbl').textContent = lbl;
+}
+function setTime(ts) {
+  if (!ts) return;
+  document.getElementById('upd-time').textContent = new Date(ts).toLocaleTimeString('en-IN');
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(code) {
+  activeTab = code;
+  filterMode = 'all';
+  activeInsight = null;
+  selectedParty = null;
+  search = '';
+  sortCol = 'constNo';
+  sortAsc = true;
+  document.getElementById('search-input').value = '';
+  document.querySelectorAll('.filter-chip').forEach((c,i) => c.classList.toggle('on', i===0));
+  document.querySelectorAll('.state-tab').forEach(t => t.classList.toggle('active', t.dataset.code === code));
+  renderState();
+}
+
+function updateTabBadges() {
+  if (!allResults) return;
+  document.querySelectorAll('.state-tab').forEach(tab => {
+    const code = tab.dataset.code;
+    const d = allResults[code];
+    if (!d || !d.parties || !d.parties.length) return;
+    const leader = [...d.parties].sort((a,b)=>b.total-a.total)[0];
+    if (!leader) return;
+    const abbr = partyAbbr(leader.party);
+    const col = partyColor(leader.party);
+    let badge = tab.querySelector('.tab-leader');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'tab-leader';
+      tab.appendChild(badge);
+    }
+    badge.textContent = `${abbr} ${leader.total}`;
+    badge.style.background = col + '22';
+    badge.style.color = col;
+    badge.style.border = `1px solid ${col}44`;
+    badge.style.display = 'inline-block';
+  });
+}
+
+// ── Render state ──────────────────────────────────────────────────────────────
+function renderState() {
+  const d = allResults?.[activeTab];
+  const meta = STATES_META[activeTab];
+
+  if (!d) {
+    document.getElementById('status-banner').style.display = 'none';
+    document.getElementById('scoreboard-section').style.display = 'none';
+    document.getElementById('insights').style.display = 'none';
+    document.getElementById('empty-state').style.display = 'block';
+    document.getElementById('empty-state').innerHTML = '<div class="empty-icon">⏳</div><div>Fetching ' + meta.name + ' results…</div>';
+    document.getElementById('tbody').innerHTML = '';
+    document.getElementById('pagination').style.display = 'none';
+    return;
+  }
+
+  renderBanner(d, meta);
+  renderScoreboard(d, meta);
+  renderInsights(d, meta);
+  applyAndRender(d);
+}
+
+function renderBanner(d, meta) {
+  const won  = d.constituencies.filter(c => isDeclared(c)).length;
+  const prog = d.constituencies.length - won;
+  document.getElementById('status-banner').style.display = 'flex';
+  document.getElementById('b-total').textContent = meta.seats;
+  document.getElementById('b-declared').textContent = won;
+  document.getElementById('b-counting').textContent = prog;
+  if (d.statusLine) {
+    document.getElementById('b-status-text').textContent = d.statusLine;
+    document.getElementById('b-status-wrap').style.display = 'block';
+  }
+}
+
+function renderScoreboard(d, meta) {
+  const maxTotal = Math.max(...d.parties.map(p => p.total), 1);
+  document.getElementById('scoreboard-section').style.display = 'block';
+  document.getElementById('majority-note').textContent = `Majority: ${meta.majority} of ${meta.seats} seats`;
+
+  document.getElementById('scoreboard').innerHTML = d.parties.map(p => {
+    const abbr = partyAbbr(p.party);
+    const col  = partyColor(p.party);
+    const pct  = Math.round(p.total / maxTotal * 100);
+    const isSel = selectedParty === abbr;
+    return `<div class="party-card${isSel?' selected':''}" onclick="togglePartyFilter('${abbr}')" title="${p.party}">
+      <div class="party-abbr" style="color:${col}">${abbr}</div>
+      <div class="party-full">${p.party}</div>
+      <div class="party-nums">
+        <div class="pn"><span class="pn-val won">${p.won}</span><span class="pn-lbl">Won</span></div>
+        <div class="pn"><span class="pn-val lead">${p.leading}</span><span class="pn-lbl">Leading</span></div>
+        <div class="pn"><span class="pn-val" style="color:var(--text)">${p.total}</span><span class="pn-lbl">Total</span></div>
+      </div>
+      <div class="party-bar"><div class="party-bar-fill" style="width:${pct}%;background:${col}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function renderInsights(d, meta) {
+  const c = d.constituencies;
+  const withMargin = c.filter(r => parseInt(r.margin) > 0);
+  const tight     = withMargin.filter(r => parseInt(r.margin) <= 1000);
+  const close     = withMargin.filter(r => parseInt(r.margin) > 1000 && parseInt(r.margin) <= 5000);
+  const landslide = withMargin.filter(r => parseInt(r.margin) > 20000);
+  const declared  = c.filter(r => isDeclared(r));
+  const sorted    = [...withMargin].sort((a,b) => parseInt(b.margin)-parseInt(a.margin));
+  const top       = sorted[0];
+  const bot       = [...tight].sort((a,b) => parseInt(a.margin)-parseInt(b.margin))[0];
+
+  // Demographic breakdowns
+  const byDemo = {};
+  c.forEach(r => {
+    const maj = r.demo?.majority || 'Hindu';
+    byDemo[maj] = (byDemo[maj]||0) + 1;
+  });
+  const DEMO_META = {
+    Hindu:    { icon:'🕉️',  label:'Hindu Majority Seats',    color:'#f59e0b' },
+    Muslim:   { icon:'☪️',  label:'Muslim Majority Seats',   color:'#10b981' },
+    Christian:{ icon:'✝️',  label:'Christian Majority Seats',color:'#3b82f6' },
+    Mixed:    { icon:'🏳️', label:'Tribal / Mixed Seats',     color:'#8b949e' },
+  };
+
+  const cards = [
+    { id:'declared',  icon:'✅', val: declared.length,  label:'Results Declared',  sub:`of ${c.length} reporting`, fn: r => isDeclared(r) },
+    { id:'counting',  icon:'⏳', val: c.length-declared.length, label:'Still Counting', sub:'In progress', fn: r => !isDeclared(r) },
+    { id:'tight',     icon:'🔴', val: tight.length,     label:'Tight Contests',    sub:'Margin ≤ 1,000 votes', fn: r => parseInt(r.margin)<=1000 && parseInt(r.margin)>0 },
+    { id:'close',     icon:'🟡', val: close.length,     label:'Close Contests',    sub:'Margin 1,001–5,000', fn: r => parseInt(r.margin)>1000 && parseInt(r.margin)<=5000 },
+    { id:'landslide', icon:'🟢', val: landslide.length, label:'Landslide Wins',    sub:'Margin > 20,000', fn: r => parseInt(r.margin)>20000 },
+    top ? { id:'bigmargin', icon:'🏆', val: fmtN(parseInt(top.margin)), label:'Biggest Margin', sub: top.constituency, fn: r => r.constituency===top.constituency } : null,
+    bot ? { id:'tightest',  icon:'⚡', val: fmtN(parseInt(bot.margin)), label:'Tightest Race',  sub: bot.constituency, fn: r => r.constituency===bot.constituency } : null,
+    // Demographic cards
+    ...Object.entries(DEMO_META).filter(([k])=>byDemo[k]).map(([k,m])=>({
+      id:'demo-'+k, icon:m.icon, val: byDemo[k]||0,
+      label: m.label, sub:'Census 2011 est.',
+      fn: r => r.demo?.majority === k,
+      color: m.color,
+    })),
+  ].filter(Boolean);
+
+  window._insightFns = Object.fromEntries(cards.filter(c=>c.fn).map(c=>[c.id,c.fn]));
+
+  document.getElementById('insights').style.display = 'grid';
+  document.getElementById('insights').innerHTML = cards.map(cd =>
+    `<div class="insight-card${activeInsight===cd.id?' active':''}" onclick="setInsight('${cd.id}')">
+      <div class="ins-icon">${cd.icon}</div>
+      <div class="ins-value" style="${cd.color?'color:'+cd.color:''}">${cd.val}</div>
+      <div class="ins-label">${cd.label}</div>
+      <div class="ins-sub">${cd.sub}</div>
+    </div>`
+  ).join('');
+}
+
+// ── Filters ────────────────────────────────────────────────────────────────────
+function setFilter(mode, btn) {
+  filterMode = mode;
+  activeInsight = null;
+  selectedParty = null;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  page = 1;
+  const d = allResults?.[activeTab];
+  if (d) applyAndRender(d);
+}
+
+function setInsight(id) {
+  activeInsight = activeInsight === id ? null : id;
+  selectedParty = null;
+  filterMode = 'all';
+  document.querySelectorAll('.filter-chip').forEach((c,i) => c.classList.toggle('on', i===0));
+  page = 1;
+  const d = allResults?.[activeTab];
+  if (d) { renderInsights(d, STATES_META[activeTab]); applyAndRender(d); }
+}
+
+function togglePartyFilter(abbr) {
+  selectedParty = selectedParty === abbr ? null : abbr;
+  activeInsight = null;
+  filterMode = 'all';
+  document.querySelectorAll('.filter-chip').forEach((c,i) => c.classList.toggle('on', i===0));
+  page = 1;
+  const d = allResults?.[activeTab];
+  if (d) { renderScoreboard(d, STATES_META[activeTab]); applyAndRender(d); }
+}
+
+function onSearch(v) {
+  search = v;
+  page = 1;
+  const d = allResults?.[activeTab];
+  if (d) applyAndRender(d);
+}
+
+function sort(col) {
+  if (sortCol === col) sortAsc = !sortAsc; else { sortCol = col; sortAsc = true; }
+  document.querySelectorAll('thead th').forEach(t => t.classList.remove('sorted'));
+  document.getElementById('th-' + col)?.classList.add('sorted');
+  const d = allResults?.[activeTab];
+  if (d) applyAndRender(d);
+}
+
+// ── Apply filters + render table ──────────────────────────────────────────────
+function applyAndRender(d) {
+  let rows = [...d.constituencies];
+
+  if (filterMode === 'won')            rows = rows.filter(r => isDeclared(r));
+  else if (filterMode === 'progress')  rows = rows.filter(r => !isDeclared(r));
+  else if (filterMode === 'tight')     rows = rows.filter(r => parseInt(r.margin) <= 1000 && parseInt(r.margin) > 0);
+  else if (filterMode === 'close')     rows = rows.filter(r => parseInt(r.margin) > 1000 && parseInt(r.margin) <= 5000);
+  else if (filterMode === 'landslide') rows = rows.filter(r => parseInt(r.margin) > 20000);
+  else if (filterMode.startsWith('demo-')) {
+    const dem = filterMode.replace('demo-', '');
+    rows = rows.filter(r => r.demo?.majority === dem);
+  }
+
+  if (activeInsight && window._insightFns?.[activeInsight]) rows = rows.filter(window._insightFns[activeInsight]);
+
+  if (selectedParty) {
+    rows = rows.filter(r =>
+      partyAbbr(r.leadParty) === selectedParty ||
+      partyAbbr(r.trailParty) === selectedParty ||
+      r.leadParty.toUpperCase().includes(selectedParty) ||
+      r.trailParty.toUpperCase().includes(selectedParty)
+    );
+  }
+
+  if (search) {
+    const t = search.toLowerCase();
+    rows = rows.filter(r =>
+      r.constituency.toLowerCase().includes(t) ||
+      r.leadCandidate.toLowerCase().includes(t) ||
+      r.trailCandidate.toLowerCase().includes(t) ||
+      r.leadParty.toLowerCase().includes(t) ||
+      r.trailParty.toLowerCase().includes(t)
+    );
+  }
+
+  rows.sort((a, b) => {
+    let av = sortCol === 'demo' ? (a.demo?.majority||'') : (a[sortCol]||'');
+    let bv = sortCol === 'demo' ? (b.demo?.majority||'') : (b[sortCol]||'');
+    if (sortCol==='constNo'||sortCol==='margin') {
+      return sortAsc ? (parseInt(av)||0)-(parseInt(bv)||0) : (parseInt(bv)||0)-(parseInt(av)||0);
+    }
+    return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
+
+  filtered = rows;
+  document.getElementById('result-count').textContent = rows.length + ' results';
+  renderTable();
+}
+
+function renderTable() {
+  const tbody   = document.getElementById('tbody');
+  const empty   = document.getElementById('empty-state');
+  const pag     = document.getElementById('pagination');
+
+  if (!filtered.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    empty.innerHTML = '<div class="empty-icon">🔍</div><div>No matching constituencies</div>';
+    pag.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+
+  const start = (page-1)*PAGE_SIZE;
+  const rows  = filtered.slice(start, start+PAGE_SIZE);
+
+  tbody.innerHTML = rows.map(r => {
+    const m = parseInt(r.margin)||0;
+    const mc = m<=1000?'tight':m<=5000?'close':'safe';
+    const lc = partyColor(r.leadParty);
+    const tc = partyColor(r.trailParty);
+    const won = isDeclared(r);
+    const badge = won
+      ? `<span class="badge badge-won">✓ Declared</span>`
+      : `<span class="badge badge-prog">Counting ${r.round||''}</span>`;
+
+    const demo = r.demo || {};
+    const demoBadge = demo.majority
+      ? `<span style="font-size:.65rem;padding:2px 7px;border-radius:10px;border:1px solid ${demo.color}44;background:${demo.color}18;color:${demo.color};white-space:nowrap">${demo.emoji} ${demo.majority}</span>`
+      : '—';
+
+    return `<tr>
+      <td class="const-num">${r.constNo}</td>
+      <td><div class="const-name">${r.constituency}</div></td>
+      <td>${demoBadge}</td>
+      <td>
+        <div class="cand" style="color:${lc}"><span class="dot-inline" style="background:${lc}"></span>${r.leadCandidate||'—'}</div>
+        <div class="cand-party">${r.leadParty||''}</div>
+      </td>
+      <td>
+        <div class="cand" style="color:${tc};opacity:.8"><span class="dot-inline" style="background:${tc}"></span>${r.trailCandidate||'—'}</div>
+        <div class="cand-party">${r.trailParty||''}</div>
+      </td>
+      <td><span class="margin-val ${mc}">${m>0?fmtN(m):'—'}</span></td>
+      <td style="color:var(--muted);font-size:.75rem">${r.round||'—'}</td>
+      <td>${badge}</td>
+    </tr>`;
+  }).join('');
+
+  const total = Math.ceil(filtered.length/PAGE_SIZE);
+  if (total<=1) { pag.style.display='none'; return; }
+  pag.style.display = 'flex';
+  document.getElementById('page-info').textContent = `${start+1}–${Math.min(start+PAGE_SIZE,filtered.length)} of ${filtered.length}`;
+  document.getElementById('page-btns').innerHTML = (() => {
+    const b = [`<button class="pbtn" onclick="goPage(${page-1})" ${page===1?'disabled':''}>‹</button>`];
+    for (let i=1;i<=total;i++) {
+      if (i===1||i===total||Math.abs(i-page)<3) b.push(`<button class="pbtn${i===page?' cur':''}" onclick="goPage(${i})">${i}</button>`);
+      else if (Math.abs(i-page)===3) b.push(`<span style="color:var(--dim);padding:0 3px">…</span>`);
+    }
+    b.push(`<button class="pbtn" onclick="goPage(${page+1})" ${page===total?'disabled':''}>›</button>`);
+    return b.join('');
+  })();
+}
+
+function goPage(p) {
+  const total = Math.ceil(filtered.length/PAGE_SIZE);
+  if (p<1||p>total) return;
+  page = p;
+  renderTable();
+  document.querySelector('.table-area').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function isDeclared(r) { return r.status && r.status.toLowerCase().includes('result declared'); }
+function fmtN(n) { return Number(n).toLocaleString('en-IN'); }
+
+const PARTY_COLORS = {
+  TVK:'#f59e0b', DMK:'#dc2626', ADMK:'#16a34a', AIUDF:'#7c3aed',
+  BJP:'#ea580c', INC:'#2563eb', AGP:'#0891b2', BPF:'#0d9488',
+  UPPL:'#d97706', TMC:'#2dd4bf', 'TMC(M)':'#14b8a6', CPIM:'#ec4899',
+  CPI:'#db2777', VCK:'#65a30d', PMK:'#7c3aed', IUML:'#0891b2',
+  NCP:'#9333ea', RSP:'#e11d48', AITC:'#2dd4bf', ISF:'#6366f1',
+  SUCI:'#f43f5e', BSPF:'#84cc16',
+};
+
+function partyColor(name) {
+  if (!name) return '#6b7280';
+  for (const [k,v] of Object.entries(PARTY_COLORS)) {
+    if (name.toUpperCase().includes(k)) return v;
+  }
+  let h=0; for (const c of name) h=(h*31+c.charCodeAt(0))&0xffff;
+  return `hsl(${h%360},50%,52%)`;
+}
+
+function partyAbbr(name) {
+  if (!name) return '?';
+  const m = name.match(/- ([A-Z()\d]+)$/);
+  if (m) return m[1];
+  return name.split(' ').filter(w=>w.length>2).map(w=>w[0]).join('').slice(0,5).toUpperCase()||name.slice(0,4).toUpperCase();
+}
+
+async function manualRefresh() {
+  const btn = document.getElementById('refresh-btn');
+  btn.disabled = true; btn.textContent = '…';
+  await fetch('/api/refresh', { method: 'POST' });
+  setTimeout(() => { btn.disabled=false; btn.textContent='↻ Refresh'; }, 15000);
+}
+</script>
+</body>
+</html>
