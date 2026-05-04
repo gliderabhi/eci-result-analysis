@@ -1,15 +1,26 @@
 const express = require('express');
 const path = require('path');
 const { scrapeAllStates, STATES } = require('./scraper');
+const db = require('./db');
 
 const app = express();
 const PORT = 3000;
-const POLL_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes (scraping all 5 states takes ~3min)
+const POLL_INTERVAL_MS = 5 * 60 * 1000;
 
 let cache = { data: null, error: null, lastUpdated: null, isLoading: false };
 const clients = new Set();
 
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Pre-populate cache from DB so UI shows data immediately on restart
+(function loadFromDb() {
+  const run = db.getLatestRun();
+  if (run) {
+    cache.data = db.getRunData(run.id);
+    cache.lastUpdated = run.scraped_at;
+    console.log(`[startup] Loaded run #${run.id} from DB (${run.scraped_at})`);
+  }
+})();
 
 app.get('/events', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
@@ -33,6 +44,16 @@ app.get('/api/results', (req, res) => {
   res.json({ data: cache.data, error: cache.error, lastUpdated: cache.lastUpdated, isLoading: cache.isLoading });
 });
 
+app.get('/api/history', (req, res) => {
+  res.json(db.getHistory(20));
+});
+
+app.get('/api/results/:runId', (req, res) => {
+  const data = db.getRunData(parseInt(req.params.runId));
+  if (!data || !Object.keys(data).length) return res.status(404).json({ error: 'Run not found' });
+  res.json(data);
+});
+
 app.post('/api/refresh', async (req, res) => {
   res.json({ message: 'Refresh triggered' });
   fetchAndBroadcast();
@@ -50,10 +71,14 @@ async function fetchAndBroadcast() {
   try {
     console.log(`[${new Date().toISOString()}] Starting scrape of all 5 states…`);
     const data = await scrapeAllStates();
-    cache = { data, error: null, lastUpdated: new Date().toISOString(), isLoading: false };
+    const scrapedAt = new Date().toISOString();
+
+    db.saveRun(scrapedAt, data);
+
+    cache = { data, error: null, lastUpdated: scrapedAt, isLoading: false };
     const summary = STATES.map(s => `${s.name}:${data[s.code]?.constituencies?.length ?? 'err'}`).join(', ');
-    console.log(`[${cache.lastUpdated}] Done — ${summary}`);
-    broadcast({ type: 'update', payload: data, lastUpdated: cache.lastUpdated, isLoading: false });
+    console.log(`[${scrapedAt}] Done — ${summary}`);
+    broadcast({ type: 'update', payload: data, lastUpdated: scrapedAt, isLoading: false });
   } catch (err) {
     cache.error = err.message;
     cache.isLoading = false;
