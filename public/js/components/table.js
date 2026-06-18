@@ -107,6 +107,8 @@ function renderTable() {
   const start = (STATE.page - 1) * STATE.PAGE_SIZE;
   const rows  = STATE.filtered.slice(start, start + STATE.PAGE_SIZE);
 
+  const showState = typeof isGEAllIndiaView === 'function' && isGEAllIndiaView();
+
   tbody.innerHTML = rows.map(r => {
     const m    = parseInt(r.margin) || 0;
     const mc   = m <= 1000 ? 'tight' : m <= 5000 ? 'close' : 'safe';
@@ -120,10 +122,16 @@ function renderTable() {
     const demoBadge = demo.majority
       ? `<span style="font-size:.65rem;padding:2px 7px;border-radius:10px;border:1px solid ${demo.color}44;background:${demo.color}18;color:${demo.color};white-space:nowrap">${demo.emoji} ${demo.majority}</span>`
       : '—';
+    const stateCell = showState
+      ? `<td style="font-size:.72rem;color:var(--muted);white-space:nowrap">${r._stateName || ''}</td>`
+      : '';
 
     return `<tr>
       <td class="const-num">${r.constNo}</td>
-      <td><div class="const-name">${r.constituency}</div></td>
+      <td>
+        <div class="const-name">${r.constituency}</div>
+        ${showState ? `<div style="font-size:.63rem;color:var(--dim)">${r._stateName || ''}</div>` : ''}
+      </td>
       <td>${demoBadge}</td>
       <td>
         <div class="cand" style="color:${lc}"><span class="dot-inline" style="background:${lc}"></span>${r.leadCandidate || '—'}</div>

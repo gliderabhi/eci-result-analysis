@@ -165,4 +165,5 @@ async function main() {
   console.log('\nDone.');
 }
 
-main().catch(console.error);
+if (require.main === module) main().catch(console.error);
+module.exports = { importState, STATE_META };

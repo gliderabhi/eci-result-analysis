@@ -4,6 +4,15 @@ const { scrapeAllStates } = require('./scraper');
 const db = require('./db');
 const { ELECTIONS } = require('./elections');
 
+// Flag lookup for GE state codes (2-letter codes used by import-lokdhaba-ge.js)
+const GE_STATE_FLAGS = {
+  AP:'🌶️', AR:'🏔️', AS:'🍵', BR:'🌾', CG:'🌲', GA:'🏖️', GJ:'🦁',
+  HR:'🌾', HP:'❄️', JK:'🏔️', JH:'🌿', KA:'🐘', KL:'🌴', MP:'🐆',
+  MH:'🏙️', MN:'🎭', ML:'☁️', MZ:'⛰️', NL:'🗡️', OD:'🛕', PB:'🌾',
+  RJ:'🏜️', SK:'🏔️', TN:'🎭', TS:'🌶️', TR:'🏕️', UP:'🕌', UK:'🏔️',
+  WB:'🐯', DL:'🏛️', PY:'🏖️', CH:'🏙️', LD:'🏝️', AN:'🏝️', DN:'🌊',
+};
+
 const app = express();
 const PORT = 3000;
 
@@ -92,7 +101,7 @@ app.get('/api/elections', (_req, res) => {
     source:  'eci',
   }] : [];
 
-  // Lok Dhaba elections from DB
+  // Lok Dhaba Assembly Elections
   const ldElections = db.getAllElections().map(e => ({
     code:    e.code,
     label:   e.label,
@@ -102,7 +111,24 @@ app.get('/api/elections', (_req, res) => {
     source:  'lokdhaba',
   }));
 
-  res.json([...live, ...ldElections]);
+  // Lok Dhaba General Elections (Lok Sabha)
+  const geElections = db.getAllGEElections().map(e => ({
+    code:    e.code,
+    label:   e.label,
+    name:    e.name,
+    seats:   e.seats,
+    majority: e.majority,
+    states:  db.getRunStates(e.run_id).map(s => ({
+      code:  s.state_code,
+      name:  s.state_name,
+      seats: s.seats,
+      flag:  GE_STATE_FLAGS[s.state_code] || '🗳️',
+    })),
+    lastRun: { id: e.run_id, scrapedAt: e.scraped_at },
+    source:  'lokdhaba_ge',
+  }));
+
+  res.json([...live, ...geElections, ...ldElections]);
 });
 
 app.get('/api/results', (_req, res) => {
@@ -113,6 +139,40 @@ app.get('/api/results/:runId', (req, res) => {
   const data = db.getRunData(parseInt(req.params.runId));
   if (!data || !Object.keys(data).length) return res.status(404).json({ error: 'Run not found' });
   res.json(data);
+});
+
+// On-demand AE import for a single state
+app.post('/api/fetch-ae/:stateKey', async (req, res) => {
+  const { stateKey } = req.params;
+  const { importState } = require('./import-lokdhaba');
+  if (!importState) return res.status(400).json({ error: 'importer unavailable' });
+  try {
+    console.log(`[on-demand] Importing AE for ${stateKey}…`);
+    await importState(stateKey);
+    const elections = db.getAllElections().filter(e =>
+      e.code.startsWith(stateKey + '_') || e.code === stateKey
+    );
+    res.json({ success: true, elections });
+  } catch (e) {
+    console.error('[on-demand AE] error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// On-demand GE import for a specific year
+app.post('/api/fetch-ge/:year', async (req, res) => {
+  const year = parseInt(req.params.year);
+  const { importGEYear } = require('./import-lokdhaba-ge');
+  if (!importGEYear) return res.status(400).json({ error: 'importer unavailable' });
+  try {
+    console.log(`[on-demand] Importing GE ${year}…`);
+    await importGEYear(year);
+    const elections = db.getAllGEElections().filter(e => e.code === `GE_${year}`);
+    res.json({ success: true, elections });
+  } catch (e) {
+    console.error('[on-demand GE] error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.listen(PORT, () => {

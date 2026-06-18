@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>India Elections 2026 — Live Results</title>
-  <link rel="stylesheet" href="/css/styles.css?v=3" />
+  <title>India Elections — Results Tracker</title>
+  <link rel="stylesheet" href="/css/styles.css?v=6" />
 </head>
 <body>
 
@@ -14,140 +14,146 @@
   <div class="brand">
     <div class="brand-icon">🇮🇳</div>
     <div>
-      <div class="brand-title">India Assembly Elections</div>
-      <div class="brand-sub">Live Results Tracker · 5 States &amp; UTs</div>
+      <div class="brand-title" id="brand-title">India Elections</div>
+      <div class="brand-sub" id="brand-sub">Results Tracker</div>
     </div>
   </div>
   <div class="hdr-right">
-    <!-- Shown when viewing a historical election -->
     <span class="election-label" id="election-label" style="display:none"></span>
-    <button class="btn btn-ghost" id="live-back-btn" onclick="switchToLive()" style="display:none">← Back to Live</button>
-
+    <button class="btn btn-ghost" id="live-back-btn" onclick="switchToLive()" style="display:none">← Live</button>
     <div class="live-pill">
       <span class="dot" id="dot"></span>
       <span id="status-lbl">Connecting…</span>
     </div>
     <span class="upd-time" id="upd-time"></span>
-    <button class="btn btn-ghost" onclick="toggleElectionDrawer()">🗳️ Elections</button>
   </div>
 </header>
 
 <div class="loading-bar" id="loading-bar"></div>
 
-<!-- State Tabs -->
-<div class="state-tabs-wrap">
-  <div class="state-tabs" id="state-tabs">
-    <div class="state-tab active" data-code="S03" onclick="switchTab('S03')">
-      <span class="tab-flag">🏔️</span>
-      <div><div>Assam</div><div class="tab-seats">126 seats</div></div>
-    </div>
-    <div class="state-tab" data-code="S11" onclick="switchTab('S11')">
-      <span class="tab-flag">🌴</span>
-      <div><div>Kerala</div><div class="tab-seats">140 seats</div></div>
-    </div>
-    <div class="state-tab" data-code="U07" onclick="switchTab('U07')">
-      <span class="tab-flag">🏖️</span>
-      <div><div>Puducherry</div><div class="tab-seats">30 seats</div></div>
-    </div>
-    <div class="state-tab" data-code="S22" onclick="switchTab('S22')">
-      <span class="tab-flag">🎭</span>
-      <div><div>Tamil Nadu</div><div class="tab-seats">234 seats</div></div>
-    </div>
-    <div class="state-tab" data-code="S25" onclick="switchTab('S25')">
-      <span class="tab-flag">🐯</span>
-      <div><div>West Bengal</div><div class="tab-seats">294 seats</div></div>
-    </div>
-  </div>
-</div>
+<div class="app-body">
 
-<main>
-  <div class="error-box" id="error-box" style="display:none"></div>
-
-  <!-- Status Banner -->
-  <div class="status-banner" id="status-banner" style="display:none">
-    <div class="banner-tag"><span>Total Seats </span><b id="b-total">—</b></div>
-    <div class="banner-tag"><span>Declared </span><b id="b-declared" style="color:var(--green)">—</b></div>
-    <div class="banner-tag"><span>Counting </span><b id="b-counting" style="color:var(--blue)">—</b></div>
-    <div class="banner-tag" id="b-status-wrap" style="display:none">
-      <span id="b-status-text" style="color:var(--muted);font-size:.7rem"></span>
+  <!-- ── LEFT PANE ────────────────────────────────────────────── -->
+  <aside class="left-pane">
+    <div class="lp-tabs" id="lp-tabs">
+      <button class="lp-tab active" data-tab="live"   onclick="switchLeftTab('live')">Live</button>
+      <button class="lp-tab"        data-tab="ge"     onclick="switchLeftTab('ge')">GE</button>
+      <button class="lp-tab"        data-tab="ae"     onclick="switchLeftTab('ae')">AE</button>
+      <button class="lp-tab"        data-tab="bypoll" onclick="switchLeftTab('bypoll')">By Polls</button>
     </div>
-  </div>
-
-  <!-- Party Scoreboard -->
-  <div id="scoreboard-section" style="display:none">
-    <div class="section-hdr">
-      <span class="section-label">Party Tally</span>
-      <span class="majority-note" id="majority-note"></span>
+    <div class="lp-content" id="lp-content">
+      <div class="lp-spinner">Loading…</div>
     </div>
-    <div class="scoreboard" id="scoreboard"></div>
-  </div>
+  </aside>
 
-  <!-- Insight Cards -->
-  <div class="insights" id="insights" style="display:none"></div>
+  <!-- ── RIGHT PANE ───────────────────────────────────────────── -->
+  <div class="right-pane">
 
-  <!-- Constituency Table -->
-  <div class="table-area">
-    <div class="table-toolbar">
-      <button class="filter-chip on" onclick="setFilter('all',this)">All</button>
-      <button class="filter-chip" onclick="setFilter('won',this)">✅ Declared</button>
-      <button class="filter-chip" onclick="setFilter('progress',this)">⏳ Counting</button>
-      <button class="filter-chip" onclick="setFilter('tight',this)">🔴 Tight ≤1K</button>
-      <button class="filter-chip" onclick="setFilter('close',this)">🟡 Close ≤5K</button>
-      <button class="filter-chip" onclick="setFilter('landslide',this)">🟢 Landslide &gt;20K</button>
-      <span style="width:1px;height:18px;background:var(--border);margin:0 2px;flex-shrink:0"></span>
-      <button class="filter-chip" onclick="setFilter('demo-Hindu',this)">🕉️ Hindu Majority</button>
-      <button class="filter-chip" onclick="setFilter('demo-Muslim',this)">☪️ Muslim Majority</button>
-      <button class="filter-chip" onclick="setFilter('demo-Christian',this)">✝️ Christian Majority</button>
-      <button class="filter-chip" onclick="setFilter('demo-Mixed',this)">🏳️ Tribal/Mixed</button>
-      <span class="result-count" id="result-count"></span>
-      <input class="search-input" id="search-input" placeholder="🔍 Search…" oninput="onSearch(this.value)" />
+    <!-- State Tabs -->
+    <div class="state-tabs-wrap">
+      <div class="state-tabs" id="state-tabs">
+        <div class="state-tab active" data-code="S03" onclick="switchTab('S03')">
+          <span class="tab-flag">🏔️</span>
+          <div><div>Assam</div><div class="tab-seats">126 seats</div></div>
+        </div>
+        <div class="state-tab" data-code="S11" onclick="switchTab('S11')">
+          <span class="tab-flag">🌴</span>
+          <div><div>Kerala</div><div class="tab-seats">140 seats</div></div>
+        </div>
+        <div class="state-tab" data-code="U07" onclick="switchTab('U07')">
+          <span class="tab-flag">🏖️</span>
+          <div><div>Puducherry</div><div class="tab-seats">30 seats</div></div>
+        </div>
+        <div class="state-tab" data-code="S22" onclick="switchTab('S22')">
+          <span class="tab-flag">🎭</span>
+          <div><div>Tamil Nadu</div><div class="tab-seats">234 seats</div></div>
+        </div>
+        <div class="state-tab" data-code="S25" onclick="switchTab('S25')">
+          <span class="tab-flag">🐯</span>
+          <div><div>West Bengal</div><div class="tab-seats">294 seats</div></div>
+        </div>
+      </div>
     </div>
-    <div class="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th onclick="sort('constNo')"        id="th-constNo">No.</th>
-            <th onclick="sort('constituency')"    id="th-constituency">Constituency</th>
-            <th onclick="sort('demo')"            id="th-demo" title="Estimated from Census 2011 district data">Demography ⓘ</th>
-            <th onclick="sort('leadCandidate')"   id="th-leadCandidate">Leading Candidate &amp; Party</th>
-            <th onclick="sort('trailCandidate')"  id="th-trailCandidate">Trailing Candidate &amp; Party</th>
-            <th onclick="sort('margin')"          id="th-margin">Margin ↕</th>
-            <th onclick="sort('round')"           id="th-round">Round</th>
-            <th onclick="sort('status')"          id="th-status">Status</th>
-          </tr>
-        </thead>
-        <tbody id="tbody"></tbody>
-      </table>
-    </div>
-    <div class="empty-state" id="empty-state">
-      <div class="empty-icon">⏳</div>
-      <div>Loading results…</div>
-    </div>
-    <div class="pagination" id="pagination" style="display:none">
-      <span id="page-info"></span>
-      <div class="page-btns" id="page-btns"></div>
-    </div>
-  </div>
-</main>
 
-<!-- Election History Drawer -->
-<div class="drawer-backdrop" id="drawer-backdrop" onclick="closeElectionDrawer()"></div>
-<div class="election-drawer" id="election-drawer">
-  <div class="drawer-header">
-    <span class="drawer-title">🗳️ Elections</span>
-    <button class="drawer-close" onclick="closeElectionDrawer()">✕</button>
-  </div>
-  <div class="drawer-body" id="election-list">
-    <div class="ep-loading">Loading…</div>
-  </div>
-</div>
+    <main>
+      <div class="error-box" id="error-box" style="display:none"></div>
 
-<script src="/js/utils.js?v=3"></script>
-<script src="/js/components/tabs.js?v=3"></script>
-<script src="/js/components/scoreboard.js?v=3"></script>
-<script src="/js/components/insights.js?v=3"></script>
-<script src="/js/components/table.js?v=3"></script>
-<script src="/js/components/election-picker.js?v=3"></script>
-<script src="/js/app.js?v=3"></script>
+      <!-- Status Banner -->
+      <div class="status-banner" id="status-banner" style="display:none">
+        <div class="banner-tag"><span>Total Seats </span><b id="b-total">—</b></div>
+        <div class="banner-tag"><span>Declared </span><b id="b-declared" style="color:var(--green)">—</b></div>
+        <div class="banner-tag"><span>Counting </span><b id="b-counting" style="color:var(--blue)">—</b></div>
+        <div class="banner-tag" id="b-status-wrap" style="display:none">
+          <span id="b-status-text" style="color:var(--muted);font-size:.7rem"></span>
+        </div>
+      </div>
+
+      <!-- Party Scoreboard -->
+      <div id="scoreboard-section" style="display:none">
+        <div class="section-hdr">
+          <span class="section-label">Party Tally</span>
+          <span class="majority-note" id="majority-note"></span>
+        </div>
+        <div class="scoreboard" id="scoreboard"></div>
+      </div>
+
+      <!-- Insight Cards -->
+      <div class="insights" id="insights" style="display:none"></div>
+
+      <!-- Constituency Table -->
+      <div class="table-area">
+        <div class="table-toolbar">
+          <button class="filter-chip on" onclick="setFilter('all',this)">All</button>
+          <button class="filter-chip" onclick="setFilter('won',this)">✅ Declared</button>
+          <button class="filter-chip" onclick="setFilter('progress',this)">⏳ Counting</button>
+          <button class="filter-chip" onclick="setFilter('tight',this)">🔴 Tight ≤1K</button>
+          <button class="filter-chip" onclick="setFilter('close',this)">🟡 Close ≤5K</button>
+          <button class="filter-chip" onclick="setFilter('landslide',this)">🟢 Landslide &gt;20K</button>
+          <span style="width:1px;height:18px;background:var(--border);margin:0 2px;flex-shrink:0"></span>
+          <button class="filter-chip" onclick="setFilter('demo-Hindu',this)">🕉️ Hindu Majority</button>
+          <button class="filter-chip" onclick="setFilter('demo-Muslim',this)">☪️ Muslim Majority</button>
+          <button class="filter-chip" onclick="setFilter('demo-Christian',this)">✝️ Christian Majority</button>
+          <button class="filter-chip" onclick="setFilter('demo-Mixed',this)">🏳️ Tribal/Mixed</button>
+          <span class="result-count" id="result-count"></span>
+          <input class="search-input" id="search-input" placeholder="🔍 Search…" oninput="onSearch(this.value)" />
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th onclick="sort('constNo')"       id="th-constNo">No.</th>
+                <th onclick="sort('constituency')"   id="th-constituency">Constituency</th>
+                <th onclick="sort('demo')"           id="th-demo" title="Estimated from Census 2011 district data">Demography ⓘ</th>
+                <th onclick="sort('leadCandidate')"  id="th-leadCandidate">Leading Candidate &amp; Party</th>
+                <th onclick="sort('trailCandidate')" id="th-trailCandidate">Trailing Candidate &amp; Party</th>
+                <th onclick="sort('margin')"         id="th-margin">Margin ↕</th>
+                <th onclick="sort('round')"          id="th-round">Round</th>
+                <th onclick="sort('status')"         id="th-status">Status</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="empty-state">
+          <div class="empty-icon">⏳</div>
+          <div>Loading results…</div>
+        </div>
+        <div class="pagination" id="pagination" style="display:none">
+          <span id="page-info"></span>
+          <div class="page-btns" id="page-btns"></div>
+        </div>
+      </div>
+    </main>
+
+  </div><!-- /right-pane -->
+</div><!-- /app-body -->
+
+<script src="/js/utils.js?v=6"></script>
+<script src="/js/components/tabs.js?v=6"></script>
+<script src="/js/components/scoreboard.js?v=6"></script>
+<script src="/js/components/insights.js?v=6"></script>
+<script src="/js/components/table.js?v=6"></script>
+<script src="/js/components/election-picker.js?v=6"></script>
+<script src="/js/app.js?v=6"></script>
 </body>
 </html>

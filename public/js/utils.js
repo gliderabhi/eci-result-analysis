@@ -8,20 +8,39 @@ const STATES_META = {
 };
 
 const PARTY_COLORS = {
-  TVK:'#f59e0b', DMK:'#dc2626', ADMK:'#16a34a', AIUDF:'#7c3aed',
-  BJP:'#ea580c', INC:'#2563eb', AGP:'#0891b2', BPF:'#0d9488',
-  UPPL:'#d97706', TMC:'#2dd4bf', 'TMC(M)':'#14b8a6', CPIM:'#ec4899',
-  CPI:'#db2777', VCK:'#65a30d', PMK:'#7c3aed', IUML:'#0891b2',
-  NCP:'#9333ea', RSP:'#e11d48', AITC:'#2dd4bf', ISF:'#6366f1',
-  SUCI:'#f43f5e', BSPF:'#84cc16', JMM:'#0ea5e9', SS:'#f97316',
-  NCP:'#9333ea', MNS:'#dc2626', SHS:'#f97316', BJP:'#ea580c',
-  JCC:'#6366f1', INC:'#2563eb', TRS:'#ec4899', AIMIM:'#16a34a',
+  // National parties
+  BJP:'#ea580c', INC:'#2563eb', BSP:'#1e40af', SP:'#dc2626',
+  NCP:'#9333ea', CPIM:'#ec4899', CPI:'#db2777', AAP:'#0891b2',
+  // Regional — South
+  DMK:'#dc2626', ADMK:'#16a34a', TVK:'#f59e0b', VCK:'#65a30d',
+  PMK:'#7c3aed', IUML:'#0891b2', TRS:'#ec4899', BRS:'#ec4899',
+  AIMIM:'#16a34a', TDP:'#facc15', YSRCP:'#7c3aed', JDS:'#16a34a',
+  // Regional — East
+  TMC:'#2dd4bf', AITC:'#2dd4bf', JMM:'#0ea5e9', BJD:'#0891b2',
+  RSP:'#e11d48', ISF:'#6366f1', SUCI:'#f43f5e', BSPF:'#84cc16',
+  // Regional — West
+  SS:'#f97316', SHS:'#f97316', MNS:'#dc2626', NCP:'#9333ea',
+  // Regional — North/NE
+  AGP:'#0891b2', BPF:'#0d9488', UPPL:'#d97706', AIUDF:'#7c3aed',
+  JCC:'#6366f1', SAD:'#1e3a8a', INLD:'#15803d', RLD:'#16a34a',
+  // Alliances / other
+  'TMC(M)':'#14b8a6', IND:'#6b7280', NOTA:'#9ca3af',
 };
 
 function getStateMeta(code) {
+  // National GE aggregate tab
+  if (code === 'IN' && STATE.currentElection?.source === 'lokdhaba_ge') {
+    return {
+      code:     'IN',
+      name:     'All India',
+      seats:    STATE.currentElection.seats,
+      majority: STATE.currentElection.majority,
+      flag:     '🇮🇳',
+    };
+  }
   if (STATE.currentElection) {
     const s = STATE.currentElection.states.find(st => st.code === code);
-    if (s) return s;
+    if (s) return { ...s, majority: s.majority ?? Math.ceil(s.seats / 2) };
   }
   return STATES_META[code] || { name: code, seats: 0, majority: 0, flag: '🗳️' };
 }

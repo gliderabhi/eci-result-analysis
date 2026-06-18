@@ -1,7 +1,17 @@
 function renderScoreboard(d, meta) {
   const maxTotal = Math.max(...d.parties.map(p => p.total), 1);
   document.getElementById('scoreboard-section').style.display = 'block';
-  document.getElementById('majority-note').textContent = `Majority: ${meta.majority} of ${meta.seats} seats`;
+  const isGE       = STATE.currentElection?.source === 'lokdhaba_ge';
+  const isAllIndia = STATE.activeTab === 'IN';
+  if (isGE && isAllIndia) {
+    document.getElementById('majority-note').textContent =
+      `Majority: ${meta.majority} of ${meta.seats} seats`;
+  } else if (isGE) {
+    document.getElementById('majority-note').textContent =
+      `${meta.seats} LS seats · national majority ${STATE.currentElection.majority}/${STATE.currentElection.seats}`;
+  } else {
+    document.getElementById('majority-note').textContent = `Majority: ${meta.majority} of ${meta.seats} seats`;
+  }
 
   document.getElementById('scoreboard').innerHTML = d.parties.map(p => {
     const abbr = partyAbbr(p.party);

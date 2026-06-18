@@ -82,9 +82,15 @@ function switchTab(code) {
 
 function updateTabBadges() {
   if (!STATE.allResults) return;
+  const isGE = STATE.currentElection?.source === 'lokdhaba_ge';
   document.querySelectorAll('.state-tab').forEach(tab => {
     const code = tab.dataset.code;
-    const d = STATE.allResults[code];
+    let d;
+    if (code === 'IN' && isGE) {
+      d = getAggregatedGEData();
+    } else {
+      d = STATE.allResults[code];
+    }
     if (!d?.parties?.length) return;
     const leader = [...d.parties].sort((a, b) => b.total - a.total)[0];
     if (!leader) return;
@@ -100,9 +106,39 @@ function updateTabBadges() {
   });
 }
 
+// ── All-India GE aggregation ──────────────────────────────────────────────────
+function getAggregatedGEData() {
+  const all = STATE.allResults;
+  if (!all) return null;
+  const partyCounts    = {};
+  const constituencies = [];
+  for (const [stateCode, sd] of Object.entries(all)) {
+    if (!sd) continue;
+    for (const p of sd.parties || []) {
+      if (!partyCounts[p.party]) partyCounts[p.party] = { party: p.party, won: 0, leading: 0, total: 0 };
+      partyCounts[p.party].won     += p.won;
+      partyCounts[p.party].leading += p.leading;
+      partyCounts[p.party].total   += p.total;
+    }
+    for (const c of sd.constituencies || []) {
+      constituencies.push({ ...c, _stateName: sd.name, _stateCode: stateCode });
+    }
+  }
+  const election = STATE.currentElection;
+  return {
+    code:         'IN',
+    name:         'All India',
+    totalSeats:   election?.seats || constituencies.length,
+    parties:      Object.values(partyCounts).sort((a, b) => b.total - a.total),
+    constituencies,
+    statusLine:   `Results declared — ${constituencies.length} of ${election?.seats || '?'} seats`,
+  };
+}
+
 // ── Render orchestration ──────────────────────────────────────────────────────
 function renderState() {
-  const d    = STATE.allResults?.[STATE.activeTab];
+  const isGEAllIndia = STATE.activeTab === 'IN' && STATE.currentElection?.source === 'lokdhaba_ge';
+  const d    = isGEAllIndia ? getAggregatedGEData() : STATE.allResults?.[STATE.activeTab];
   const meta = getStateMeta(STATE.activeTab);
 
   if (!d) {
@@ -122,4 +158,13 @@ function renderState() {
   applyAndRender(d);
 }
 
+// Helper exposed to table.js
+function isGEAllIndiaView() {
+  return STATE.activeTab === 'IN' && STATE.currentElection?.source === 'lokdhaba_ge';
+}
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  initLeftPane();
+});
 

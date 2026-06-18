@@ -7,14 +7,15 @@ db.pragma('foreign_keys = ON');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS election_meta (
-    code        TEXT PRIMARY KEY,
-    label       TEXT NOT NULL,
-    name        TEXT NOT NULL,
-    state_name  TEXT NOT NULL,
-    state_code  TEXT NOT NULL,
-    seats       INTEGER NOT NULL,
-    flag        TEXT NOT NULL DEFAULT '🗳️',
-    majority    INTEGER NOT NULL
+    code           TEXT PRIMARY KEY,
+    label          TEXT NOT NULL,
+    name           TEXT NOT NULL,
+    state_name     TEXT NOT NULL,
+    state_code     TEXT NOT NULL,
+    seats          INTEGER NOT NULL,
+    flag           TEXT NOT NULL DEFAULT '🗳️',
+    majority       INTEGER NOT NULL,
+    election_type  TEXT NOT NULL DEFAULT 'AE'
   );
 
   CREATE TABLE IF NOT EXISTS scrape_runs (
@@ -58,6 +59,11 @@ db.exec(`
 // Add election_code column to existing DBs that were created without it
 try {
   db.exec(`ALTER TABLE scrape_runs ADD COLUMN election_code TEXT NOT NULL DEFAULT 'may2026'`);
+} catch (_) { /* column already exists */ }
+
+// Add election_type column to existing DBs that were created without it
+try {
+  db.exec(`ALTER TABLE election_meta ADD COLUMN election_type TEXT NOT NULL DEFAULT 'AE'`);
 } catch (_) { /* column already exists */ }
 
 const _insertRun   = db.prepare(`INSERT INTO scrape_runs (election_code, scraped_at, status) VALUES (?, ?, ?)`);
@@ -137,12 +143,12 @@ function getHistory(limit = 30) {
 }
 
 const _upsertMeta = db.prepare(`
-  INSERT OR REPLACE INTO election_meta (code, label, name, state_name, state_code, seats, flag, majority)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  INSERT OR REPLACE INTO election_meta (code, label, name, state_name, state_code, seats, flag, majority, election_type)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `);
 
 function upsertElectionMeta(meta) {
-  _upsertMeta.run(meta.code, meta.label, meta.name, meta.state_name, meta.state_code, meta.seats, meta.flag, meta.majority);
+  _upsertMeta.run(meta.code, meta.label, meta.name, meta.state_name, meta.state_code, meta.seats, meta.flag, meta.majority, meta.election_type || 'AE');
 }
 
 function getAllElections() {
@@ -150,11 +156,35 @@ function getAllElections() {
     SELECT m.*, r.id as run_id, r.scraped_at
     FROM election_meta m
     JOIN scrape_runs r ON r.election_code = m.code
-    WHERE EXISTS (SELECT 1 FROM constituency_results WHERE run_id = r.id)
+    WHERE m.election_type = 'AE'
+      AND EXISTS (SELECT 1 FROM constituency_results WHERE run_id = r.id)
     GROUP BY m.code
     HAVING r.id = MAX(r.id)
     ORDER BY m.state_name, CAST(SUBSTR(m.code, INSTR(m.code,'_')+1) AS INTEGER) DESC
   `).all();
 }
 
-module.exports = { saveRun, getLatestRun, getRunData, getHistory, upsertElectionMeta, getAllElections };
+function getAllGEElections() {
+  return db.prepare(`
+    SELECT m.*, r.id as run_id, r.scraped_at
+    FROM election_meta m
+    JOIN scrape_runs r ON r.election_code = m.code
+    WHERE m.election_type = 'GE'
+      AND EXISTS (SELECT 1 FROM constituency_results WHERE run_id = r.id)
+    GROUP BY m.code
+    HAVING r.id = MAX(r.id)
+    ORDER BY CAST(SUBSTR(m.code, INSTR(m.code,'_')+1) AS INTEGER) DESC
+  `).all();
+}
+
+function getRunStates(runId) {
+  return db.prepare(`
+    SELECT state_code, state_name, COUNT(*) as seats
+    FROM constituency_results
+    WHERE run_id = ?
+    GROUP BY state_code, state_name
+    ORDER BY state_name
+  `).all(runId);
+}
+
+module.exports = { saveRun, getLatestRun, getRunData, getHistory, upsertElectionMeta, getAllElections, getAllGEElections, getRunStates };
