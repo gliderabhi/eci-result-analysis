@@ -6,27 +6,26 @@ const { ELECTIONS } = require('./elections');
 
 const app = express();
 const PORT = 3000;
-const POLL_INTERVAL_MS = 5 * 60 * 1000;
 
 const DEFAULT_ELECTION = ELECTIONS[0]; // may2026
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// In-memory live cache (only for the default/live election)
+// In-memory cache for the live/current election
 let cache = { data: null, error: null, lastUpdated: null, isLoading: false };
 const clients = new Set();
 
-// Track in-progress historical scrapes so we don't double-run
-const scraping = new Set();
-
-// Pre-populate cache from DB on startup
-(function loadFromDb() {
+// Load from DB on startup; scrape once only if no data exists
+(async function init() {
   const run = db.getLatestRun(DEFAULT_ELECTION.code);
   if (run) {
     cache.data = db.getRunData(run.id);
     cache.lastUpdated = run.scraped_at;
     console.log(`[startup] Loaded run #${run.id} (${run.scraped_at}) from DB`);
+  } else {
+    console.log('[startup] No data in DB — running initial scrape…');
+    await scrapeAndCache();
   }
 })();
 
@@ -39,7 +38,6 @@ app.get('/events', (req, res) => {
 
   const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
-  // Send current state immediately
   if (cache.data || cache.error) {
     send({ type: cache.error ? 'error' : 'update', payload: cache.data, error: cache.error, lastUpdated: cache.lastUpdated, isLoading: cache.isLoading });
   } else {
@@ -54,54 +52,57 @@ function broadcast(payload) {
   clients.forEach(send => send(payload));
 }
 
-// ── Live polling (default election) ───────────────────────────────────────────
-async function fetchAndBroadcast() {
+async function scrapeAndCache() {
   if (cache.isLoading) return;
   cache.isLoading = true;
-  broadcast({ type: 'loading', isLoading: true, lastUpdated: cache.lastUpdated });
 
   try {
-    console.log(`[${new Date().toISOString()}] Live scrape: ${DEFAULT_ELECTION.name}`);
+    console.log(`[${new Date().toISOString()}] Scraping: ${DEFAULT_ELECTION.name}`);
     const data = await scrapeAllStates(DEFAULT_ELECTION);
     const scrapedAt = new Date().toISOString();
 
-    db.saveRun(DEFAULT_ELECTION.code, scrapedAt, data);
-
-    cache = { data, error: null, lastUpdated: scrapedAt, isLoading: false };
-    console.log(`[${scrapedAt}] Live scrape done`);
-    broadcast({ type: 'update', payload: data, lastUpdated: scrapedAt, isLoading: false });
+    const hasData = Object.values(data).some(v => v && v.constituencies?.length > 0);
+    if (hasData) {
+      db.saveRun(DEFAULT_ELECTION.code, scrapedAt, data);
+      cache = { data, error: null, lastUpdated: scrapedAt, isLoading: false };
+      console.log(`[${scrapedAt}] Scrape done`);
+      broadcast({ type: 'update', payload: data, lastUpdated: scrapedAt, isLoading: false });
+    } else {
+      cache.isLoading = false;
+      console.log(`[${scrapedAt}] Scrape returned no data — keeping existing cache`);
+    }
   } catch (err) {
     cache.error = err.message;
     cache.isLoading = false;
-    cache.lastUpdated = new Date().toISOString();
-    broadcast({ type: 'error', error: err.message, lastUpdated: cache.lastUpdated, isLoading: false });
-    console.error('Live scrape error:', err.message);
+    console.error('Scrape error:', err.message);
   }
 }
 
-fetchAndBroadcast();
-setInterval(fetchAndBroadcast, POLL_INTERVAL_MS);
-
 // ── REST API ──────────────────────────────────────────────────────────────────
-app.get('/api/elections', (req, res) => {
-  const history = db.getHistory(50);
-  // Attach last scrape info to each election
-  const result = ELECTIONS.map(e => {
-    const lastRun = history.find(h => h.election_code === e.code);
-    return {
-      code:      e.code,
-      label:     e.label,
-      name:      e.name,
-      states:    e.states.map(s => ({ code: s.code, name: s.name, seats: s.seats, flag: s.flag })),
-      lastRun:   lastRun ? { id: lastRun.id, scrapedAt: lastRun.scraped_at } : null,
-      scraping:  scraping.has(e.code),
-    };
-  });
-  res.json(result);
-});
+app.get('/api/elections', (_req, res) => {
+  // Always include live ECI election if it has data
+  const history = db.getHistory(200);
+  const liveRun = history.find(h => h.election_code === DEFAULT_ELECTION.code);
+  const live = liveRun ? [{
+    code:    DEFAULT_ELECTION.code,
+    label:   DEFAULT_ELECTION.label,
+    name:    DEFAULT_ELECTION.name,
+    states:  DEFAULT_ELECTION.states.map(s => ({ code: s.code, name: s.name, seats: s.seats, flag: s.flag })),
+    lastRun: { id: liveRun.id, scrapedAt: liveRun.scraped_at },
+    source:  'eci',
+  }] : [];
 
-app.get('/api/history', (_req, res) => {
-  res.json(db.getHistory(30));
+  // Lok Dhaba elections from DB
+  const ldElections = db.getAllElections().map(e => ({
+    code:    e.code,
+    label:   e.label,
+    name:    e.name,
+    states:  [{ code: e.state_code, name: e.state_name, seats: e.seats, flag: e.flag }],
+    lastRun: { id: e.run_id, scrapedAt: e.scraped_at },
+    source:  'lokdhaba',
+  }));
+
+  res.json([...live, ...ldElections]);
 });
 
 app.get('/api/results', (_req, res) => {
@@ -114,40 +115,6 @@ app.get('/api/results/:runId', (req, res) => {
   res.json(data);
 });
 
-// Trigger live refresh
-app.post('/api/refresh', async (_req, res) => {
-  res.json({ message: 'Refresh triggered' });
-  fetchAndBroadcast();
-});
-
-// Trigger scrape for any election
-app.post('/api/scrape', async (req, res) => {
-  const { electionCode } = req.body;
-  const election = ELECTIONS.find(e => e.code === electionCode);
-  if (!election) return res.status(400).json({ error: 'Unknown election code' });
-  if (scraping.has(electionCode)) return res.status(409).json({ error: 'Already scraping this election' });
-
-  res.json({ message: `Scraping ${election.name}` });
-
-  scraping.add(electionCode);
-  broadcast({ type: 'scrape-started', electionCode, electionName: election.name });
-
-  try {
-    console.log(`[${new Date().toISOString()}] Historical scrape: ${election.name}`);
-    const data = await scrapeAllStates(election);
-    const scrapedAt = new Date().toISOString();
-    const runId = db.saveRun(electionCode, scrapedAt, data);
-    console.log(`[${scrapedAt}] Historical scrape done — run #${runId}`);
-    broadcast({ type: 'scrape-done', electionCode, electionName: election.name, runId, scrapedAt });
-  } catch (err) {
-    console.error(`Historical scrape error (${electionCode}):`, err.message);
-    broadcast({ type: 'scrape-error', electionCode, error: err.message });
-  } finally {
-    scraping.delete(electionCode);
-  }
-});
-
 app.listen(PORT, () => {
   console.log(`ECI Results Tracker → http://localhost:${PORT}`);
-  console.log(`Polling every ${POLL_INTERVAL_MS / 60000} minutes`);
 });

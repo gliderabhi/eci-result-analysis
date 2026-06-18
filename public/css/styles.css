@@ -188,3 +188,10 @@ td { padding: 8px 12px; vertical-align: middle; }
 .ep-btn-scrape:hover { background: rgba(34,197,94,.1); }
 .ep-btn-scraping { color: var(--orange); border-color: var(--orange); opacity: .7; cursor: not-allowed; }
 .ep-loading { color: var(--muted); font-size: .82rem; padding: 20px; text-align: center; }
+.ep-section-label { font-size: 0.6rem; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; padding: 14px 0 6px; border-top: 1px solid var(--border); margin-top: 6px; }
+.ep-state-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.ep-state-name { font-size: 0.78rem; font-weight: 600; color: var(--text); flex-shrink: 0; }
+.ep-year-btns { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.ep-year-btn { padding: 3px 8px; border-radius: 5px; border: 1px solid var(--border); cursor: pointer; font-size: 0.68rem; font-weight: 600; background: var(--surface); color: var(--muted); transition: all .15s; }
+.ep-year-btn:hover { border-color: var(--blue); color: var(--blue); }
+.ep-year-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }

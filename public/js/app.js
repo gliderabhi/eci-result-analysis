@@ -23,17 +23,12 @@ const es = new EventSource('/events');
 es.onmessage = e => {
   const msg = JSON.parse(e.data);
 
-  // Route scrape-status events to the election picker
-  if (['scrape-started', 'scrape-done', 'scrape-error'].includes(msg.type)) {
-    handleScrapeSSE(msg);
-    return;
-  }
-
   // Live data events — only update UI if not viewing a historical run
   if (msg.type === 'loading') {
     if (!STATE.viewingRunId) {
       setStatus('loading', 'Fetching…');
       document.getElementById('loading-bar').style.display = 'block';
+      if (STATE.allResults) renderState();
     }
   } else if (msg.type === 'error') {
     if (!STATE.viewingRunId) {
@@ -127,12 +122,4 @@ function renderState() {
   applyAndRender(d);
 }
 
-// ── Manual refresh (live only) ────────────────────────────────────────────────
-async function manualRefresh() {
-  const btn = document.getElementById('refresh-btn');
-  btn.disabled    = true;
-  btn.textContent = '…';
-  await fetch('/api/refresh', { method: 'POST' });
-  setTimeout(() => { btn.disabled = false; btn.textContent = '↻ Refresh'; }, 15000);
-}
 

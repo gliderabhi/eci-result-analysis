@@ -6,6 +6,17 @@ db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
 db.exec(`
+  CREATE TABLE IF NOT EXISTS election_meta (
+    code        TEXT PRIMARY KEY,
+    label       TEXT NOT NULL,
+    name        TEXT NOT NULL,
+    state_name  TEXT NOT NULL,
+    state_code  TEXT NOT NULL,
+    seats       INTEGER NOT NULL,
+    flag        TEXT NOT NULL DEFAULT '🗳️',
+    majority    INTEGER NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS scrape_runs (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     election_code TEXT    NOT NULL DEFAULT 'may2026',
@@ -85,7 +96,10 @@ const saveRun = db.transaction((electionCode, scrapedAt, data) => {
 
 function getLatestRun(electionCode = 'may2026') {
   return db.prepare(
-    `SELECT * FROM scrape_runs WHERE status='success' AND election_code=? ORDER BY id DESC LIMIT 1`
+    `SELECT r.* FROM scrape_runs r
+     WHERE r.status='success' AND r.election_code=?
+       AND EXISTS (SELECT 1 FROM constituency_results WHERE run_id = r.id)
+     ORDER BY r.id DESC LIMIT 1`
   ).get(electionCode);
 }
 
@@ -122,4 +136,25 @@ function getHistory(limit = 30) {
   ).all(limit);
 }
 
-module.exports = { saveRun, getLatestRun, getRunData, getHistory };
+const _upsertMeta = db.prepare(`
+  INSERT OR REPLACE INTO election_meta (code, label, name, state_name, state_code, seats, flag, majority)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+`);
+
+function upsertElectionMeta(meta) {
+  _upsertMeta.run(meta.code, meta.label, meta.name, meta.state_name, meta.state_code, meta.seats, meta.flag, meta.majority);
+}
+
+function getAllElections() {
+  return db.prepare(`
+    SELECT m.*, r.id as run_id, r.scraped_at
+    FROM election_meta m
+    JOIN scrape_runs r ON r.election_code = m.code
+    WHERE EXISTS (SELECT 1 FROM constituency_results WHERE run_id = r.id)
+    GROUP BY m.code
+    HAVING r.id = MAX(r.id)
+    ORDER BY m.state_name, CAST(SUBSTR(m.code, INSTR(m.code,'_')+1) AS INTEGER) DESC
+  `).all();
+}
+
+module.exports = { saveRun, getLatestRun, getRunData, getHistory, upsertElectionMeta, getAllElections };

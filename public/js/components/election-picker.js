@@ -1,6 +1,6 @@
 // ── Election Picker (side drawer) ─────────────────────────────────────────────
 
-let _elections = [];  // populated from /api/elections
+let _elections = [];
 
 function toggleElectionDrawer() {
   const drawer = document.getElementById('election-drawer');
@@ -28,65 +28,68 @@ async function loadElectionList() {
 
 function renderElectionList() {
   const container = document.getElementById('election-list');
-  container.innerHTML = _elections.map(e => {
-    const isCurrent = STATE.currentElection?.code === e.code && !STATE.viewingRunId;
-    const isLive    = e.code === 'may2026' && !STATE.viewingRunId && !STATE.currentElection;
-    const active    = isCurrent || isLive;
-    const scraping  = e.scraping;
 
-    const lastRunHtml = e.lastRun
-      ? `<div class="ep-last">Last scraped ${fmtDate(e.lastRun.scrapedAt)}</div>`
-      : `<div class="ep-last" style="color:var(--dim)">Not scraped yet</div>`;
+  // Separate live ECI election from historical
+  const liveElections = _elections.filter(e => e.source === 'eci');
+  const historical    = _elections.filter(e => e.source === 'lokdhaba');
 
-    const scrapeBtn = scraping
-      ? `<button class="ep-btn ep-btn-scraping" disabled>⏳ Scraping…</button>`
-      : `<button class="ep-btn ep-btn-scrape" onclick="triggerScrape('${e.code}')">↻ Scrape</button>`;
+  // Group historical by state
+  const byState = {};
+  for (const e of historical) {
+    const stateName = e.states[0]?.name || e.code;
+    if (!byState[stateName]) byState[stateName] = [];
+    byState[stateName].push(e);
+  }
 
-    const viewBtn = e.lastRun
-      ? `<button class="ep-btn ep-btn-view${active ? ' active' : ''}" onclick="loadElectionRun(${e.lastRun.id}, '${e.code}')">${active ? '✓ Viewing' : 'View'}</button>`
-      : '';
+  let html = '';
 
-    const stateChips = e.states.map(s => `<span class="ep-chip">${s.flag} ${s.name}</span>`).join('');
+  // Live section
+  if (liveElections.length) {
+    html += `<div class="ep-section-label">Live / Recent</div>`;
+    html += liveElections.map(e => electionCard(e)).join('');
+  }
 
-    return `<div class="ep-card${active ? ' ep-card-active' : ''}">
-      <div class="ep-card-header">
-        <div>
-          <div class="ep-label">${e.label}</div>
-          <div class="ep-name">${e.name}</div>
-        </div>
-        <div class="ep-actions">${viewBtn}${scrapeBtn}</div>
-      </div>
-      <div class="ep-chips">${stateChips}</div>
-      ${lastRunHtml}
+  // Historical grouped by state
+  html += `<div class="ep-section-label">Past Elections (Lok Dhaba)</div>`;
+  for (const [stateName, elections] of Object.entries(byState).sort()) {
+    const flag = elections[0].states[0]?.flag || '🗳️';
+    const years = elections
+      .sort((a, b) => {
+        const ya = parseInt(a.code.split('_').pop());
+        const yb = parseInt(b.code.split('_').pop());
+        return yb - ya;
+      })
+      .map(e => {
+        const year = e.code.split('_').pop();
+        const active = STATE.currentElection?.code === e.code;
+        return `<button class="ep-year-btn${active ? ' active' : ''}" onclick="loadElectionRun(${e.lastRun.id}, '${e.code}')">${year}</button>`;
+      }).join('');
+
+    html += `<div class="ep-state-row">
+      <span class="ep-state-name">${flag} ${stateName}</span>
+      <div class="ep-year-btns">${years}</div>
     </div>`;
-  }).join('');
+  }
+
+  container.innerHTML = html;
 }
 
-async function triggerScrape(electionCode) {
-  const election = _elections.find(e => e.code === electionCode);
-  if (!election) return;
-
-  // Optimistically update UI
-  election.scraping = true;
-  renderElectionList();
-
-  try {
-    const res = await fetch('/api/scrape', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ electionCode }),
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      alert(err.error || 'Failed to start scrape');
-      election.scraping = false;
-      renderElectionList();
-    }
-    // SSE will send scrape-done / scrape-error events
-  } catch (e) {
-    election.scraping = false;
-    renderElectionList();
-  }
+function electionCard(e) {
+  const isCurrent = STATE.currentElection?.code === e.code;
+  const isLive    = e.code === 'may2026' && !STATE.viewingRunId && !STATE.currentElection;
+  const active    = isCurrent || isLive;
+  const stateChips = e.states.map(s => `<span class="ep-chip">${s.flag} ${s.name}</span>`).join('');
+  const viewBtn = `<button class="ep-btn ep-btn-view${active ? ' active' : ''}" onclick="loadElectionRun(${e.lastRun.id}, '${e.code}')">${active ? '✓ Viewing' : 'View'}</button>`;
+  return `<div class="ep-card${active ? ' ep-card-active' : ''}">
+    <div class="ep-card-header">
+      <div>
+        <div class="ep-label">${e.label}</div>
+        <div class="ep-name">${e.name}</div>
+      </div>
+      <div class="ep-actions">${viewBtn}</div>
+    </div>
+    <div class="ep-chips">${stateChips}</div>
+  </div>`;
 }
 
 async function loadElectionRun(runId, electionCode) {
@@ -102,7 +105,6 @@ async function loadElectionRun(runId, electionCode) {
   STATE.search          = '';
   STATE.page            = 1;
 
-  // Update header to show which election we're viewing
   document.getElementById('election-label').textContent = election.name;
   document.getElementById('election-label').style.display = 'inline';
   document.getElementById('live-back-btn').style.display = 'inline-flex';
@@ -111,7 +113,6 @@ async function loadElectionRun(runId, electionCode) {
   renderElectionList();
   closeElectionDrawer();
 
-  // Fetch data for this run
   document.getElementById('empty-state').style.display = 'block';
   document.getElementById('empty-state').innerHTML = '<div class="empty-icon">⏳</div><div>Loading results…</div>';
   document.getElementById('scoreboard-section').style.display = 'none';
@@ -122,6 +123,7 @@ async function loadElectionRun(runId, electionCode) {
     const res  = await fetch(`/api/results/${runId}`);
     const data = await res.json();
     STATE.allResults = data;
+    updateTabBadges();
     renderState();
   } catch (e) {
     document.getElementById('empty-state').innerHTML =
@@ -142,38 +144,18 @@ function switchToLive() {
   document.getElementById('election-label').style.display = 'none';
   document.getElementById('live-back-btn').style.display  = 'none';
 
-  // Restore default May 2026 tabs
   renderStateTabs([
-    { code: 'S03', name: 'Assam',       seats: 126, flag: '🏔️' },
+    { code: 'S03', name: 'Assam',       seats: 126, flag: '🍵' },
     { code: 'S11', name: 'Kerala',      seats: 140, flag: '🌴' },
     { code: 'U07', name: 'Puducherry',  seats: 30,  flag: '🏖️' },
     { code: 'S22', name: 'Tamil Nadu',  seats: 234, flag: '🎭' },
     { code: 'S25', name: 'West Bengal', seats: 294, flag: '🐯' },
   ]);
 
-  // Show live cache data
   if (STATE.liveResults) {
     STATE.allResults = STATE.liveResults;
+    updateTabBadges();
     renderState();
   }
   renderElectionList();
-}
-
-// Handle SSE events for scrape status
-function handleScrapeSSE(msg) {
-  if (msg.type === 'scrape-started') {
-    const e = _elections.find(el => el.code === msg.electionCode);
-    if (e) { e.scraping = true; renderElectionList(); }
-  } else if (msg.type === 'scrape-done') {
-    const e = _elections.find(el => el.code === msg.electionCode);
-    if (e) {
-      e.scraping = false;
-      e.lastRun  = { id: msg.runId, scrapedAt: msg.scrapedAt };
-      renderElectionList();
-    }
-  } else if (msg.type === 'scrape-error') {
-    const e = _elections.find(el => el.code === msg.electionCode);
-    if (e) { e.scraping = false; renderElectionList(); }
-    alert(`Scrape failed for ${msg.electionCode}: ${msg.error}`);
-  }
 }

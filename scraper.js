@@ -1,39 +1,25 @@
-const puppeteer = require('puppeteer-extra');
-const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-const { chromium: playwrightChromium } = require('playwright');
+const { execFile } = require('child_process');
 const cheerio = require('cheerio');
 const { getMajority } = require('./demographics');
 
-puppeteer.use(StealthPlugin());
-
-const CHROMIUM = playwrightChromium.executablePath();
+function fetchPage(url) {
+  return new Promise((resolve, reject) => {
+    execFile('curl', ['-sL', '--max-time', '30', '-H', 'Accept-Language: en-IN,en;q=0.9', url], { maxBuffer: 10 * 1024 * 1024 }, (err, stdout) => {
+      if (err) return reject(err);
+      resolve(stdout);
+    });
+  });
+}
 
 async function fetchPages(urls) {
-  const browser = await puppeteer.launch({
-    headless: true,
-    executablePath: CHROMIUM,
-    args: ['--no-sandbox', '--lang=en-IN'],
-  });
-  try {
-    const results = [];
-    const BATCH = 4;
-    for (let i = 0; i < urls.length; i += BATCH) {
-      const batch = urls.slice(i, i + BATCH);
-      const htmls = await Promise.all(batch.map(async (url) => {
-        const page = await browser.newPage();
-        await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-IN,en;q=0.9' });
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await new Promise(r => setTimeout(r, 2000));
-        const html = await page.content();
-        await page.close();
-        return html;
-      }));
-      results.push(...htmls);
-    }
-    return results;
-  } finally {
-    await browser.close();
+  const BATCH = 4;
+  const results = [];
+  for (let i = 0; i < urls.length; i += BATCH) {
+    const batch = urls.slice(i, i + BATCH);
+    const htmls = await Promise.all(batch.map(fetchPage));
+    results.push(...htmls);
   }
+  return results;
 }
 
 function parsePartywise(html) {
@@ -67,7 +53,7 @@ function parseConstituencies(html) {
   };
   const getParty = (td) => $(td).find('table td').first().text().replace(/\s+/g, ' ').trim();
 
-  mainTable.children('tbody').children('tr').slice(2).each((_, row) => {
+  mainTable.children('tbody').children('tr').each((_, row) => {
     const tds = $(row).children('td');
     if (tds.length < 9) return;
     const constituency   = getText(tds[0]);
