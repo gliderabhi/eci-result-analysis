@@ -17,7 +17,6 @@ header {
   flex-shrink: 0; height: 55px;
 }
 .brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.brand-icon { font-size: 22px; }
 .brand-title { font-size: 0.95rem; font-weight: 700; }
 .brand-sub { font-size: 0.68rem; color: var(--muted); }
 .hdr-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
